@@ -1,18 +1,28 @@
 # AnssibleKodekloud
 
-## Config 
+## Config
 
 Can be in :
- - EN_VAR
- - local file /web-playbooks/ansible.cfg
- - ansible conf file
 
-## Usefull command 
- 
+- EN_VAR ANSIBLE_GATHERING=explicit ANSIBLE_+param_name
+- local file /web-playbooks/ansible.cfg
+- ansible conf file :etc/ansible/ansible.cfg
+
 ```bash
 ansible-config list # Lists all configuraitons
 ansible-config view # Show the current config file
 ansible-config dump # show the current settings
+```
+
+## SSH
+
+```bash
+ssh-copy-id -i id_rsa user1@serve
+```
+
+## Usefull command
+
+```bash
 
 ansible-playbook --check   #Check all goes well
 ansible-playbook --diff         #Show diff between before and after
