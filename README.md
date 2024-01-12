@@ -40,13 +40,3 @@ ansible-galaxy install geerlingguy.mysql -p ./roles #install in target directory
 
 ansible-galaxy collection install amazon.aws
 ```
-
-student-node
-
-node01
-User: bob
-Password: caleston123
-
-node02
-User: bob
-Password: caleston123
