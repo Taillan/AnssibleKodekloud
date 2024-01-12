@@ -1,6 +1,77 @@
 ---
 - hosts: all
+  gather_facts: no
+  become: true
   tasks:
-    - cron:
-        name: "Check Memory"
-        state: absent
+    - package:
+        name:
+          - libselinux-python
+          - libsemanage-python
+          - firewalld
+        state: installed
+
+- hosts: lamp-db
+  gather_facts: false
+  become: true
+  tasks:
+    - package:
+        name:
+          - mariadb-server
+          - MySQL-python
+        state: installed
+    - copy:
+        src: files/my.cnf
+        dest: /etc/my.cnf
+    - service: name=mariadb   enabled=true state=started
+    - service: name=firewalld enabled=true state=started
+    - firewalld:
+        port: 3306/tcp
+        permanent: true
+        immediate: true
+        state: enabled
+        zone: public
+    - mysql_db:
+        name: '{{ dbname }}'
+        state: present
+    - mysql_user:
+        name: '{{ dbuser }}'
+        host: 172.20.1.100
+        password: '{{ dbpassword }}'
+        priv: '*.*:ALL'
+        state: present
+    - copy:
+        src: db-load-script.sql
+        dest: /tmp
+    - shell: mysql -f < /tmp/db-load-script.sql 
+
+- hosts: lamp-web
+  gather_facts: false
+  become: true
+  tasks:
+    - package:
+        name:
+          - httpd
+          - php
+          - php-mysql
+          - git
+    - service: name=firewalld enabled=true state=started
+    - firewalld:
+        port: '{{httpd_port}}/tcp'
+        permanent: true
+        immediate: true
+        state: enabled
+        zone: public
+    - replace:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: "DirectoryIndex index.html"
+        replace: "DirectoryIndex index.php"
+    - service: name=httpd enabled=true state=started
+    - name: Git checkout
+      git:
+        repo: '{{ repository }}'
+        dest: /var/www/html/
+        force: yes 
+    - copy:
+        src: files/index.php
+        dest: /var/www/html/index.php
+    
