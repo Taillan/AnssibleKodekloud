@@ -39,4 +39,55 @@ ansible-galaxy install geerlingguy.mysql # install in default role directory `an
 ansible-galaxy install geerlingguy.mysql -p ./roles #install in target directory
 
 ansible-galaxy collection install amazon.aws
+
+ansible-inventory -i inventory/ -y #to see inventory content throught architecture folder
+```
+
+## Magic Variable
+
+```yaml
+msg: "{{ hostvars[web2].dns_server }}"
+
+msg: '{{ groups['web_servers'] }} #return member of a group
+
+msg: '{{ groups_names }}'         #return wich group the target is member of 
+
+msg: '{{ inventory_hostname }}'   #name of the host in the inventory file     
+```
+
+## Condition
+
+```yaml
+when: ansible_facts['distribution'] == 'CentOS' 
+
+block:
+  - taskX:
+  - taskY:
+  - taskZ:
+  always:
+  rescue:
+```
+
+## Strategy
+
+```yaml
+strategy: debug #Executes tasks in interactive debug session.
+strategy: linear #Executes tasks in a linear fashion
+
+strategy: free #Executes tasks without waiting for all hosts
+
+serial: 3 #batch strat
+#Maximum 5 at a time defined by `forks =5`
+```
+
+## File separation
+
+```yaml
+- name: Deploy Web & DB Server
+  hosts: web-db-server
+  tasks:
+   - include_tasks: tasks/db.yaml
+   - include_tasks: tasks/web.yaml
+
+
 ```
