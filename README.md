@@ -40,7 +40,7 @@ ansible-galaxy install geerlingguy.mysql -p ./roles #install in target directory
 
 ansible-galaxy collection install amazon.aws
 
-ansible-inventory -i inventory/ -y #to see inventory content throught architecture folder
+ansible-inventory -i inventory/ -y --list #to see inventory content throught architecture folder
 ```
 
 ## Magic Variable
@@ -88,6 +88,34 @@ serial: 3 #batch strat
   tasks:
    - include_tasks: tasks/db.yaml
    - include_tasks: tasks/web.yaml
+```
 
+Folder
 
+```sh
+play-books
+  inventory
+  group_vars
+    web_server.yaml
+  host_vars
+    web1.yaml
+    web2.yaml
+  
+```
+
+## Role
+
+```sh
+ansible-galaxy init RoleName
+
+# In my-playbook/roles 
+# OR
+# In /etc/ansible/roles
+
+```
+
+## Vault
+
+```bash
+ansible-vault encrypt inventory
 ```
