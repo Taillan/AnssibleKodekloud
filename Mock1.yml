@@ -1,0 +1,95 @@
+- hosts: node00
+  vars:
+    - dev_pass: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          39366263393037623933386434306636393963353933316637666437343364363933393763323937
+          6538303132353130396466383362623530663066353336350a306464613037653439646262323638
+          63303530626564636332373261633136316336646365646261666530626566396565303664366434
+          6436646337313261620a376430653533383534363962396666333533383539633863656563393762
+          6530
+    - adm_pass: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          66636334306332656536663565306465636661646238366565343332363563646465646638656362
+          3830313237323666386262396632383861356632663032310a386462646633623632623038386530
+          38616430313464643534623263326537393530623735393238643139323031643762646462383963
+          6663363831613761330a356235306265353436373132636564303533626533356238363632303235
+          3537
+  tasks:
+    - include_vars: data/users.yml
+    - name: 'add admin'
+      user:
+        name: '{{ item }}'
+        password: "{{ adm_pass | string | password_hash('sha512') }}"
+        group: wheel
+      with_items: "{{ admins | list }}"
+    - name: 'add users'
+      user:
+        name: '{{ item }}'
+        home: /var/www
+        password: "{{ dev_pass | string | password_hash('sha512') }}"
+      with_items: "{{ developers | list }}"
+
+
+- hosts: node01
+  tasks:
+    - package:
+        name:
+          - httpd
+          - php
+        state: present
+    - file:
+        path: /var/www/html/myroot
+        state: directory
+    - replace:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: '/var/www/html'
+        replace: "/var/www/html/myroot"
+    - template:
+        src: phpinfo.php.j2
+        dest: /var/www/html/myroot/phpinfo.php
+        owner: apache
+        group: apache
+    - service:
+        name: httpd
+        enabled: yes
+        state: started
+    - firewalld:
+        port: 80/tcp
+        zone: public
+        permanent: true
+        state: enabled
+
+- hosts: node02
+  tasks:
+    - name: Start service nginx
+      service:
+        name: "{{ item }}"
+        state: started
+      with_items:
+        - nginx
+        - mariadb
+    
+    - name: clean nginx document root
+      shell: rm -rf /usr/share/nginx/html/*
+    - unarchive:
+        remote_src: yes
+        src: https://github.com/indercodes/ansible-1100-mock-nginx/raw/master/index.php.zip
+        dest: /usr/share/nginx/html/
+    - replace:
+        path: /usr/share/nginx/html/index.php
+        regexp: '\$database.*'
+        replace: '$database = "mydb";'
+    - replace:
+        path: /usr/share/nginx/html/index.php
+        regexp: '$password = "password";'
+        replace: '$password = "mypassword";'
+    - replace:
+        path: /usr/share/nginx/html/index.php
+        regexp: '$username = "user";'
+        replace: '$username = "myuser";'
+    - service:
+        name: nginx
+        state: restarted
+
+- hosts: node03
+  tasks:

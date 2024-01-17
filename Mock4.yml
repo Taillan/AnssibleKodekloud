@@ -1,0 +1,34 @@
+- hosts: all
+  tasks:
+    - user:
+        name: deploy
+        state: present
+    - authorized_key:
+        user: deploy
+        state: present
+        key: "{{ lookup('file', '~/playbooks/devops.pub') }}"
+
+- hosts: all
+  tasks:
+    - package:
+        name:
+          - git
+          - make
+          - autoconf
+          - automake
+          - protobuf-devel
+          - libutempter-devel
+          - ncurses-devel
+          - openssl-devel
+          - devtoolset-7-gcc*
+        state: present
+    - git:
+        repo: https://github.com/mobile-shell/mosh
+        dest: /home/mosh
+    - shell: 'cd /home/mosh; sh autogen.sh'
+    - shell: 'cd /home/mosh; scl enable devtoolset-7 -- ./configure'
+    - shell: 'cd /home/mosh; scl enable devtoolset-7 -- make && make install'
+
+- hosts: all
+  roles:
+    - arillso.logrotate

@@ -1,0 +1,85 @@
+---
+
+- hosts: all
+  name: Install KubeAdm
+  tasks:
+    - name: PreRequis
+      become: true
+      block:
+        - name: Install firewalld, curl & apt-transport-https
+          yum:
+            update_cache: true
+            name: 'firewalld'
+            state: present
+
+        - name: Load br_netfilter
+          modprobe:
+            name: br_netfilter
+            state: present
+
+        - name: start firewalld
+          service:
+            name: firewalld
+            state: started
+            enabled: true
+
+        - name: Add repository
+          yum_repository:
+            name: Kubernetes
+            description: Kube YUM repo
+            baseurl: https://packages.cloud.google.com/yum/repos/kubernetes-el7-\$basearch
+            enabled: true
+            gpgcheck: false
+            repo_gpgcheck: false
+            gpgkey: https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+            exclude: kubelet kubeadm kubectl
+
+        - name: Set permissif SELinux
+          shell: |
+            setenforce 0
+            sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+
+        - name: Install kubelet kubeadm & kubectl
+          yum:
+            update_cache: true
+            name: ['kubelet', 'kubeadm', 'kubectl']
+            state: present
+            security: true
+            disable_excludes: Kubernetes
+
+        - name: Start service kubelet
+          service:
+            name: kubelet
+            enabled: true
+            state: started
+
+- hosts: Master
+  name: Opener Port on Master
+  tasks:
+    - name: Check Port Used
+      become: true
+      firewalld:
+        port: '{{ item }}'
+        permanent: true
+        state: enabled
+        zone: public
+      with_items:
+        - '64430-64439/tcp'
+        - '2379-2380/tcp'
+        - '10250/tcp'
+        - '10251/tcp'
+        - '10252/tcp'
+
+- hosts: Worker
+  name: Opener Port on Worker
+  tasks:
+    - name: Check Port Used
+      become: true
+      firewalld:
+        port: '{{ item }}'
+        permanent: true
+        state: enabled
+        zone: public
+      with_items:
+        - '30000-32767/tcp'
+        - '10250/tcp'

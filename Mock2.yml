@@ -1,0 +1,47 @@
+- hosts: all
+  tasks:
+    - pip:
+        name: awscli
+        executable: pip3
+        state: latest
+
+- hosts: all
+  become: true
+  tasks:
+    - authorized_key:
+        user: root
+        state: present
+        key: "{{ lookup('file', '/home/thor/playbooks/john_doe.pub') }}"
+
+- hosts: all
+  tasks:
+    - package:
+        name: nginx
+        state: present
+    - copy:
+        src: /home/thor/playbooks/index.html
+        dest: /usr/share/nginx/html
+    - service:
+        name: nginx
+        state: restarted
+
+- hosts: all
+  tasks:
+    - copy:
+        src: /home/thor/playbooks/secret_file.txt
+        dest: /root/.secret_file.txt
+
+- hosts: all
+  tasks:
+     - package:
+        name: yum-cron
+        state: present
+
+     - replace:
+        path: /etc/yum/yum-cron.conf
+        regexp: 'update_cmd = *'
+        replace: "update_cmd = securityt"
+    
+     - service:
+        name: yum-cron
+        state: restarted

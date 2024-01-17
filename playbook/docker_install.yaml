@@ -1,0 +1,25 @@
+---
+- hosts: all
+  name: "Install Docker on All hosts"
+  become: true
+  tasks:
+    - name: Add repository
+      get_url:
+        dest: /etc/yum.repos.d/docker-ce.repo
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+
+    - name: Install package
+      yum:
+        update_cache: true
+        name: '{{ item }}'
+        state: present
+      with_items:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+        - docker-buildx-plugin
+        - docker-compose-plugin
+    - name: Start docker service
+      service:
+        name: docker
+        state: started

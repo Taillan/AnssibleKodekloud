@@ -118,4 +118,26 @@ ansible-galaxy init RoleName
 
 ```bash
 ansible-vault encrypt inventory
+ansible-playbook palybook.yaml -i inventory --ask-vault-pass
+ansible-playbook palybook.yaml -i inventory -vault-password-file ~./vault_pass.txt
+ansible-playbook palybook.yaml -i inventory -vault-password-file ~./vault_pass.py #script with call API
+ansible-vault view inventory
+ansible-vault create inventory
+```
+
+## Debug
+
+Error
+
+```log
+[WARNING]: Skipping plugin (/usr/lib/python3/dist-
+packages/ansible/plugins/filter/core.py) as it seems to be invalid: cannot
+import name 'environmentfilter' from 'jinja2.filters'
+```
+
+Fix
+
+```bash
+pip uninstall jinja2
+pip3 install jinja2==3.0.3
 ```
