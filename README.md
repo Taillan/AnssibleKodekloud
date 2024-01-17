@@ -141,3 +141,25 @@ Fix
 pip uninstall jinja2
 pip3 install jinja2==3.0.3
 ```
+
+Error
+
+```log
+ERROR! couldn't resolve module/action 'kubernetes.core.k8s'
+```
+
+Fix
+
+```bash
+ansible-galaxy collection install community.kubernetes
+```
+
+Error
+
+```log
+Failed to create temporary directory.In some cases, you may have been able to authenticate and did not have permissions on the target directory. Consider changing the remote tmp path in ansible.cfg to a path rooted in \"/tmp\"```
+```
+
+Fix
+
+Revert PATH modification. `mkdir` était inutilisable

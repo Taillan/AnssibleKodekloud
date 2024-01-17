@@ -1,0 +1,155 @@
+- hosts: Master
+  name: Configuration
+  gather_facts: false
+  tasks:
+    - name: Install clouflare for cert
+      become: true
+      block:
+        - name: get cloudflare file
+          get_url:
+            url: '{{ item.url }}'
+            dest: '{{ item.dest }}'
+            mode: +x
+            validate_certs: false
+          with_items:
+            - {url: 'https://pkg.cfssl.org/R1.2/cfssl_linux-amd64', dest: /usr/local/bin/cfssl}
+            - {url: 'https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64', dest: /usr/local/bin/cfssljson}
+
+        - name: Create a directory if it does not exist
+          ansible.builtin.file:
+            path: /etc/kubernetes/pki/etcd
+            state: directory
+            owner: osboxes
+            group: osboxes
+            mode: +xrw
+
+- hosts: node01
+  name: Configuration
+  gather_facts: false
+  tasks:
+    - name: create etcd config.json
+      copy:
+        dest: /etc/kubernetes/pki/etcd/ca-config.json
+        owner: osboxes
+        group: osboxes
+        mode: +rw
+        content: |
+          {
+              "signing": {
+                  "default": {
+                      "expiry": "43800h"
+                  },
+                  "profiles": {
+                      "server": {
+                          "expiry": "43800h",
+                          "usages": [
+                              "signing",
+                              "key encipherment",
+                              "server auth",
+                              "client auth"
+                          ]
+                      },
+                      "client": {
+                          "expiry": "43800h",
+                          "usages": [
+                              "signing",
+                              "key encipherment",
+                              "client auth"
+                          ]
+                      },
+                      "peer": {
+                          "expiry": "43800h",
+                          "usages": [
+                              "signing",
+                              "key encipherment",
+                              "server auth",
+                              "client auth"
+                          ]
+                      }
+                  }
+              }
+          }
+
+    - name: create ca-csr.json
+      copy:
+        dest: /etc/kubernetes/pki/etcd/ca-csr.json
+        owner: osboxes
+        group: osboxes
+        mode: +xrw
+        content: |
+          {
+              "CN": "etcd",
+              "key": {
+                  "algo": "rsa",
+                  "size": 2048
+              }
+          }
+    - name: create client.json
+      copy:
+        dest: /etc/kubernetes/pki/etcd/client.json
+        owner: osboxes
+        group: osboxes
+        mode: +xrw
+        content: |
+          {
+              "CN": "client",
+              "key": {
+                  "algo": "ecdsa",
+                  "size": 256
+              }
+          }
+
+    - name: genereate cert 1
+      become: true
+      become_user: osboxes
+      shell:
+        chdir: /etc/kubernetes/pki/etcd
+        cmd: /usr/local/bin/cfssl gencert -initca ca-csr.json | cfssljson -bare ca -
+      register: myoutput
+      changed_when: myoutput.rc != 0
+
+    - name: genereate cert 2
+      become: true
+      become_user: osboxes
+      shell:
+        chdir: /etc/kubernetes/pki/etcd
+        cmd: /usr/local/bin/cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=client client.json | cfssljson -bare client
+      register: myoutput
+      changed_when: myoutput.rc != 0
+
+- hosts: [node02, node03]
+  name: transfert cert
+  gather_facts: false
+  tasks:
+
+    - name: Create a directory if it does not exist
+      become: true
+      ansible.builtin.file:
+        path: /etc/kubernetes/pki/etcd
+        state: directory
+        mode: '0755'
+
+    - name: Transfer file from node01 to node02
+      synchronize:
+        src: '{{ item }}'
+        dest: /etc/kubernetes/pki/etcd/
+      delegate_to: node01
+      with_items:
+        - /etc/kubernetes/pki/etcd/ca.pem
+        - /etc/kubernetes/pki/etcd/client.pem
+        - /etc/kubernetes/pki/etcd/ca.csr, /etc/kubernetes/pki/etcd/ca-key.pem
+        - /etc/kubernetes/pki/etcd/client.csr
+        - /etc/kubernetes/pki/etcd/client-key.pem
+
+- hosts: Master
+  tasks:
+    - name: generate peer and etcd cert
+      shell:
+        chdir: /etc/kubernetes/pki/etcd
+        cmd: |
+          cfssl print-defaults csr > config.json
+          sed -i 's/www\.example\.net/'"{{ ansible_host }}"'/' config.json
+          sed -i 's/example\.net/'"{{ host }}"'/' config.json
+          sed -i '0,/CN/{s/example\.net/'"{{ host }}"'/}' config.json
+      register: myoutput
+      changed_when: myoutput.rc != 0
