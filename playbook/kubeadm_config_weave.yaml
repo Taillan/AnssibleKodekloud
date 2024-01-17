@@ -130,6 +130,7 @@
         mode: '0755'
 
     - name: Transfer file from node01 to node02
+      become: true
       synchronize:
         src: '{{ item }}'
         dest: /etc/kubernetes/pki/etcd/
