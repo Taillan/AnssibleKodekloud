@@ -1,4 +1,5 @@
 - hosts: Master
+  tags: Stage1
   name: Configuration
   gather_facts: false
   tasks:
@@ -23,7 +24,8 @@
             group: osboxes
             mode: +xrw
 
-- hosts: node01
+- hosts: master-1
+  tags: Stage2
   name: Configuration
   gather_facts: false
   tasks:
@@ -117,7 +119,24 @@
       register: myoutput
       changed_when: myoutput.rc != 0
 
-- hosts: [node02, node03]
+    - name: Fetch the file from the master-1 to controller
+      become: true
+      run_once: true
+      fetch:
+        src: /etc/kubernetes/pki/etcd/{{ item }}
+        dest: buffer/
+        flat: true
+      with_items:
+        - ca-config.json
+        - ca.csr
+        - ca-key.pem
+        - ca.pem
+        - client.csr
+        - client-key.pem
+        - client.pem
+
+- hosts: Master
+  tags: Stage3
   name: transfert cert
   gather_facts: false
   tasks:
@@ -129,20 +148,22 @@
         state: directory
         mode: '0755'
 
-    - name: Transfer file from node01 to node02
-      become: true
-      synchronize:
-        src: '{{ item }}'
-        dest: /etc/kubernetes/pki/etcd/
-      delegate_to: node01
+    - name: Copy the file from master to the nodes
+      copy:
+        src: buffer/{{ item }}
+        dest: /etc/kubernetes/pki/etcd
       with_items:
-        - /etc/kubernetes/pki/etcd/ca.pem
-        - /etc/kubernetes/pki/etcd/client.pem
-        - /etc/kubernetes/pki/etcd/ca.csr, /etc/kubernetes/pki/etcd/ca-key.pem
-        - /etc/kubernetes/pki/etcd/client.csr
-        - /etc/kubernetes/pki/etcd/client-key.pem
+        - ca-config.json
+        - ca.csr
+        - ca-key.pem
+        - ca.pem
+        - client.csr
+        - client-key.pem
+        - client.pem
+      when: inventory_hostname != 'master-1'
 
 - hosts: Master
+  tags: Stage4
   tasks:
     - name: generate peer and etcd cert
       shell:
@@ -150,7 +171,54 @@
         cmd: |
           cfssl print-defaults csr > config.json
           sed -i 's/www\.example\.net/'"{{ ansible_host }}"'/' config.json
-          sed -i 's/example\.net/'"{{ host }}"'/' config.json
-          sed -i '0,/CN/{s/example\.net/'"{{ host }}"'/}' config.json
+          sed -i 's/example\.net/'"{{ inventory_hostname }}"'/' config.json
+          sed -i '0,/CN/{s/example\.net/'"{{ inventory_hostname }}"'/}' config.json
+          cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=server config.json | cfssljson -bare server
+          cfssl gencert -ca=ca.pem -ca-key=ca-key.pem -config=ca-config.json -profile=peer config.json | cfssljson -bare peer
       register: myoutput
       changed_when: myoutput.rc != 0
+
+    - name: Install etcd
+      become: true
+      yum:
+        name: etcd
+        state: present
+
+    - name: Create conf etcd
+      become: true
+      copy:
+        dest: /etc/etcd.env
+        content: |
+          PEER_NAME={{ inventory_hostname }}
+          PRIVATE_IP={{ ansible_host }}
+
+    - name: Create etcd cluster
+      become: true
+      copy:
+        dest: /etc/systemd/system/etcd.service
+        content: |
+          [Unit]
+          Description=etcd
+          Documentation=https://github.com/coreos/etcd
+          Conflicts=etcd.service
+          Conflicts=etcd2.service
+
+          [Service]
+          EnvironmentFile=/etc/etcd.env
+          Type=notify
+          Restart=always
+          RestartSec=5s
+          LimitNOFILE=40000
+          TimeoutStartSec=0
+
+          ExecStart=/bin/etcd --name {{ inventory_hostname }}  --data-dir /var/lib/etcd --listen-client-urls http://{{ ansible_host }}:2379,http://127.0.0.1:2379 --advertise-client-urls http://{{ ansible_host }}:2379 --listen-peer-urls http://{{ ansible_host }}:2380 --initial-advertise-peer-urls http://{{ ansible_host }}:2380 --cert-file=/etc/kubernetes/pki/etcd/server.pem --key-file=/etc/kubernetes/pki/etcd/server-key.pem --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.pem --peer-cert-file=/etc/kubernetes/pki/etcd/peer.pem --peer-key-file=/etc/kubernetes/pki/etcd/peer-key.pem --peer-trusted-ca-file=/etc/kubernetes/pki/etcd/ca.pem --initial-cluster master-1=http://{{ hostvars['master-1']['ansible_host'] }}:2380,master-2=http://{{ hostvars['master-2']['ansible_host'] }}:2380,master-3=http://{{ hostvars['master-3']['ansible_host'] }}:2380 --initial-cluster-token my-etcd-token --initial-cluster-state new --client-cert-auth=false --peer-client-cert-auth=false
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Start etcd
+      become: true
+      service:
+        name: etcd
+        state: restarted
+        enabled: true

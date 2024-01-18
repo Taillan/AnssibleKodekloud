@@ -1,0 +1,37 @@
+etcd
+    --name master-1
+    --data-dir /var/lib/etcd
+    --listen-client-urls http://192.168.1.6:2379,http://127.0.0.1:2379
+    --advertise-client-urls http://192.168.1.6:2379
+    --listen-peer-urls http://192.168.1.6:2380
+    --initial-advertise-peer-urls http://192.168.1.6:2380   
+    --cert-file=/etc/kubernetes/pki/etcd/server.pem   
+    --key-file=/etc/kubernetes/pki/etcd/server-key.pem   
+    --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.pem   
+    --peer-cert-file=/etc/kubernetes/pki/etcd/peer.pem   
+    --peer-key-file=/etc/kubernetes/pki/etcd/peer-key.pem   
+    --peer-trusted-ca-file=/etc/kubernetes/pki/etcd/ca.pem   
+    --initial-cluster master-0=http://192.168.1.6:2380,master-1=http://192.168.1.7:2380,master-2=http://192.168.1.8:2380
+    --initial-cluster-token my-etcd-token   
+    --initial-cluster-state new   
+    --client-cert-auth=false   
+    --peer-client-cert-auth=false
+
+/bin/etcd
+    --name <host_name> 
+    --data-dir /var/lib/etcd
+    --listen-client-urls http://<host_private_ip>:2379,http://127.0.0.1:2379
+    --advertise-client-urls http://<host_private_ip>:2379
+    --listen-peer-urls http://<host_private_ip>:2380
+    --initial-advertise-peer-urls http://<host_private_ip>:2380
+    --cert-file=/etc/kubernetes/pki/etcd/server.pem
+    --key-file=/etc/kubernetes/pki/etcd/server-key.pem
+    --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.pem
+    --peer-cert-file=/etc/kubernetes/pki/etcd/peer.pem
+    --peer-key-file=/etc/kubernetes/pki/etcd/peer-key.pem
+    --peer-trusted-ca-file=/etc/kubernetes/pki/etcd/ca.pem
+    --initial-cluster master-0=http://<master0_private_ip>:2380,master-1=http://<master1_private_ip>:2380,master-2=http://<master2_private_ip>:2380
+    --initial-cluster-token my-etcd-token
+    --initial-cluster-state new
+    --client-cert-auth=false
+    --peer-client-cert-auth=false

@@ -124,6 +124,10 @@ ansible-playbook palybook.yaml -i inventory -vault-password-file ~./vault_pass.p
 ansible-vault view inventory
 ansible-vault create inventory
 ```
+## Playbook
+
+[Playbook-kuber](https://www.velotio.com/engineering-blog/demystifying-high-availability-in-kubernetes-using-kubeadm)
+
 
 ## Debug
 
@@ -163,3 +167,4 @@ Failed to create temporary directory.In some cases, you may have been able to au
 Fix
 
 Revert PATH modification. `mkdir` était inutilisable
+
